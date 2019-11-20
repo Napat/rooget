@@ -50,7 +50,9 @@ int passive_port_number(char *message)
 /* Create PASSIVE socket and connect to server */
 int func_to_connect_passive(char *address,int port)
 {
+	#define RECVTIMEOUT_SEC		10 
 	int newsockfd;
+	int	sockopt;
 	struct sockaddr_in new_serverAddress;
 	
 	newsockfd = socket(AF_INET,SOCK_STREAM,0);
@@ -59,6 +61,19 @@ int func_to_connect_passive(char *address,int port)
 	new_serverAddress.sin_family = AF_INET;
 	new_serverAddress.sin_addr.s_addr = inet_addr(address);
 	new_serverAddress.sin_port = htons(port);
+
+	// setup recv timeout
+	// recv with timeout https://stackoverflow.com/a/2939145/3616311
+	struct timeval tv_nsfd;
+	tv_nsfd.tv_sec = RECVTIMEOUT_SEC;	
+	tv_nsfd.tv_usec = 100;
+
+	if ((sockopt=setsockopt(newsockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv_nsfd, sizeof(tv_nsfd))) == -1) { 
+		// Enable reuse of a socket
+		printf("%s(%d)\r\n", __FUNCTION__, __LINE__);
+		perror("setsockopt"); 
+		exit(1); 
+	}
 
 	connect(newsockfd,(struct sockaddr *)&new_serverAddress,sizeof(new_serverAddress));
 	

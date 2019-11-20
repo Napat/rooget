@@ -124,102 +124,14 @@ void get_content(char *arg,char *user_input,int sockfd)
 			close(newsockfd);
 			return;
 		}			
-		
-		if(0)
-			{
-			/* Create file on client system */	
-			fd = open(file, O_CREAT|O_WRONLY|O_TRUNC, 0644);			
-			file_size = 0;		
-			if(size % 100 == 0)
-				temp = (size / 100);
-			else
-				temp = (size / 100) + 1;
-			
-			temp1 = temp;
-			printf("Downloading [");
-			fflush(stdout);
-			while((no_of_bytes = recv(newsockfd, data, MAXSZ, 0))>0)
-			{
-				total = 0;
-				file_size += no_of_bytes;
-				temp1 = temp * down;
-				
-				while(temp1 <= file_size)
-				{
-					printf("#");
-					fflush(stdout);
-					down += 2;
-					temp1 = temp * down;
-				}
-				/* For partial write operations */
-				while(total < no_of_bytes)
-				{
-					p = write(fd,data + total,no_of_bytes - total);
-					total += p;
-				}
-				
-			}
-			printf("] 100%%\n");
-			fflush(stdout);
-			close(fd);
-		}
-		else if(0)
-		{	// https://stackoverflow.com/a/11965442/3616311
-			
-			// #define MYBUFSIZ 4096
-			// #define MYBUFSIZ 16384
-			# define MYBUFSIZ 32768
-			ssize_t len;
-			size_t len_write;
-			char buffer[MYBUFSIZ];
-			int file_size = size;
-			FILE *received_file;
-			int remain_data = 0;
 
-			int pc_bulksize = 0; 
-			int pc_nextmark = 0;
-			int pc_barlen = 50;			// number of #############
-			pc_bulksize = size / pc_barlen;		
-			pc_nextmark = file_size - pc_bulksize;
-
-			received_file = fopen(file, "w");
-			if (received_file == NULL)
-			{
-				fprintf(stderr, "Failed to open file foo --> %s\n", strerror(errno));
-				exit(EXIT_FAILURE);
-			}
-
-			remain_data = file_size;
-			printf("Downloading [");
-			while ((remain_data > 0) && ((len = recv(newsockfd, buffer, MYBUFSIZ, 0)) > 0))
-			{
-				len_write = fwrite(buffer, sizeof(char), len, received_file);
-				if(len_write != len)
-				{
-					printf("%s(%d) fwrite ERROR! %d\n", __FUNCTION__, __LINE__, (int)len_write);
-				}
-				remain_data -= len;
-				// fprintf(stdout, "Receive %d bytes and we hope :- %d bytes\n", (int)len, remain_data);
-
-				if(remain_data < pc_nextmark)
-				{
-					// printf("remain_data=%d pc_nextmark=%d\n", remain_data, pc_nextmark);
-					printf("#");
-					pc_nextmark -= pc_bulksize;
-				}
-			}
-			printf("] 100%%\n");
-			fclose(received_file);
-			fflush(stdout);
-		}
-		else if(1)
+		if(1)
 		{	// recv with timeout https://stackoverflow.com/a/2939145/3616311
 			// recv https://stackoverflow.com/a/11965442/3616311
 			
 			// #define MYBUFSIZ 4096
 			// #define MYBUFSIZ 16384
 			#define MYBUFSIZ 			32768
-			#define RECVTIMEOUT_SEC		15 
 			ssize_t len;
 			size_t len_write;
 			char buffer[MYBUFSIZ];
@@ -233,12 +145,6 @@ void get_content(char *arg,char *user_input,int sockfd)
 			pc_bulksize = size / pc_barlen;		
 			pc_nextmark = file_size - pc_bulksize;
 
-			// setup recv timeout
-			struct timeval tv;
-			tv.tv_sec = RECVTIMEOUT_SEC;	
-			tv.tv_usec = 100;
-			setsockopt(newsockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
-
 			received_file = fopen(file, "w");
 			if (received_file == NULL)
 			{
@@ -248,6 +154,7 @@ void get_content(char *arg,char *user_input,int sockfd)
 
 			remain_data = file_size;
 			printf("Downloading [");
+			fflush(stdout);
 			while ((remain_data > 0) && ((len = recv(newsockfd, buffer, MYBUFSIZ, 0)) > 0))
 			{
 				len_write = fwrite(buffer, sizeof(char), len, received_file);
@@ -262,6 +169,7 @@ void get_content(char *arg,char *user_input,int sockfd)
 				{
 					// printf("remain_data=%d pc_nextmark=%d\n", remain_data, pc_nextmark);
 					printf("#");
+					fflush(stdout);
 					pc_nextmark -= pc_bulksize;
 				}
 			}
@@ -292,15 +200,23 @@ void get_content(char *arg,char *user_input,int sockfd)
 		
 		/* Close PASSIVE socket */
 		close(newsockfd);	
-
+		
 		while((no_of_bytes = recv(sockfd, message_from_server, MAXSZ, 0)) > 0)
 		{
 			message_from_server[no_of_bytes] = '\0';
 			printf("%s",message_from_server);
 			fflush(stdout);
+
 			if(strstr(message_from_server,"226 ") > 0)
 				break;
 		}
+
+		if(no_of_bytes < 0)
+		{	
+			perror("recv");	
+			printf("%s(%d) Warning transfer complete but control signal problem code: %d\r\n", __FUNCTION__, __LINE__, no_of_bytes);
+		}
+
 		printf("\n");	
 	}
 }

@@ -316,9 +316,11 @@ bool is_valid_args(input_args_t *pinput_args, int argc, char *argv[]) {
 }
 
 bool ftp_initsock(ftpcommu_t *pftpcommu, input_args_t *pinput_args) {
+	#define RECVTIMEOUT_SEC		10 
     ssize_t len;
     ftpcommu_state_e ftpcommu_state;
-
+	int	sockopt;
+	
 	pftpcommu->sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if(pftpcommu->sockfd < 0)
 	{
@@ -331,6 +333,19 @@ bool ftp_initsock(ftpcommu_t *pftpcommu, input_args_t *pinput_args) {
 	pftpcommu->serverAddress.sin_family = AF_INET;
 	pftpcommu->serverAddress.sin_addr.s_addr = inet_addr(pinput_args->ip_address);
 	pftpcommu->serverAddress.sin_port = htons(pinput_args->port);
+
+	// setup recv timeout
+	// recv with timeout https://stackoverflow.com/a/2939145/3616311
+	struct timeval tv_nsfd;
+	tv_nsfd.tv_sec = RECVTIMEOUT_SEC;	
+	tv_nsfd.tv_usec = 100;
+
+	if ((sockopt=setsockopt(pftpcommu->sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv_nsfd, sizeof(tv_nsfd))) == -1) { 
+		// Enable reuse of a socket
+		printf("%s(%d)\r\n", __FUNCTION__, __LINE__);
+		perror("setsockopt"); 
+		exit(1); 
+	}
 
 	// Connect to server
 	if(connect(pftpcommu->sockfd, (struct sockaddr *)&pftpcommu->serverAddress, sizeof(pftpcommu->serverAddress)) < 0)
@@ -960,7 +975,6 @@ int main(int argc, char *argv[])
 			runmode_cli(&ftpcommu, &input_args);
 			break;
 		case RUNMODE_GET:
-			printf("Still inprogress!!!\n");
 			runmode_get(&ftpcommu, &input_args);
 			break;
 		default:
